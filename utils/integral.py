@@ -1,3 +1,13 @@
+import numpy as np
+
+'''
+a -> b: integration limits for x
+f: function of two variables, f(x, y)
+'''
+def partial_integral(a, b, f, precision = 1e-2):
+    x_vals = np.arange(a, b + precision, precision)
+    return lambda y: np.trapezoid([f(x, y) for x in x_vals], dx=precision)
+
 '''
 a -> b: integration limits for x 
 c -> d: integration limits for y 

@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np 
 from mpl_toolkits.mplot3d import Axes3D
+import math
 
 from utils import integral, funcs
 
@@ -13,12 +14,12 @@ mf = 0.3 # ac = mf am, mf < 1
 am = mf * ac 
 
 pwm = lambda t: funcs.pwm(t, wc, wm, ac, am)
+f = lambda x, y: funcs.f(x, y, wc, wm, ac, am)
+sin = np.sin
+cos = np.cos
 
 # mode: 0 -> a_mn, 1 -> b_mn, 2 -> c_mn, 3 -> d_mn
 def get_coeff(m, n, mode):
-    sin = np.sin
-    cos = np.cos
-    f = lambda x, y: funcs.f(x, y, wc, wm, ac, am)
 
     if mode == 0:
         # a_mn
@@ -65,10 +66,7 @@ def dfs_coeff(M, N):
             c_coeff_matrix[i][j] = get_coeff(i, j, 2)
             d_coeff_matrix[i][j] = get_coeff(i, j, 3)
 
-
-    coeff_matrix = [a_coeff_matrix, b_coeff_matrix, c_coeff_matrix, d_coeff_matrix]
-    return coeff_matrix
-
+    return a_coeff_matrix, b_coeff_matrix, c_coeff_matrix, d_coeff_matrix
 
 def reconstruct_f(x, y, M, N, ceoff):
     """
@@ -130,13 +128,12 @@ def reconstruct_f(x, y, M, N, ceoff):
     return result
 
 h = 0.01
-M = 10
-N = 10
+M = N = 50
 t = np.linspace(0, 1*np.pi, int(1*np.pi/h))
 x = t*wc
 y = t*wm
 
-coeff = dfs_coeff(M, N)
+coeff = dfs_coeff_multithreaded_fast(M, N)
 
 out = [pwm(_) for _ in t]
 out_re = [reconstruct_f(wc*_t, wm*_t, M, N, coeff) for _t in t]

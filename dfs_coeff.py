@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np 
 from mpl_toolkits.mplot3d import Axes3D
+from concurrent.futures import ThreadPoolExecutor
+import math
 
 from utils import integral, funcs
 
@@ -13,12 +15,12 @@ mf = 0.3 # ac = mf am, mf < 1
 am = mf * ac 
 
 pwm = lambda t: funcs.pwm(t, wc, wm, ac, am)
+f = lambda x, y: funcs.f(x, y, wc, wm, ac, am)
 
 # mode: 0 -> a_mn, 1 -> b_mn, 2 -> c_mn, 3 -> d_mn
 def get_coeff(m, n, mode):
     sin = np.sin
     cos = np.cos
-    f = lambda x, y: funcs.f(x, y, wc, wm, ac, am)
 
     if mode == 0:
         # a_mn
@@ -69,12 +71,38 @@ def dfs_coeff(N):
     coeff_matrix = [a_coeff_matrix, b_coeff_matrix, c_coeff_matrix, d_coeff_matrix]
     return coeff_matrix
 
+def dfs_coeff_multithreaded(M, N, num_threads=16):
+    a_coeff_matrix = np.zeros((M, N))
+    b_coeff_matrix = np.zeros((M, N))
+    c_coeff_matrix = np.zeros((M, N))
+    d_coeff_matrix = np.zeros((M, N))
+
+    def compute_chunk(matrix, mode, start_i, end_i):
+        for i in range(start_i, end_i):
+            for j in range(N):
+                matrix[i][j] = get_coeff(i, j, mode)
+
+    chunk_size = math.ceil(M / 4)  # Divide each matrix into 4 chunks
+    
+    tasks = []
+    for mode in range(4):  # 0: a, 1: b, 2: c, 3: d
+        matrix = [a_coeff_matrix, b_coeff_matrix, c_coeff_matrix, d_coeff_matrix][mode]
+        for chunk in range(4):
+            start_i = chunk * chunk_size
+            end_i = min((chunk + 1) * chunk_size, M)
+            tasks.append((matrix, mode, start_i, end_i))
+
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        executor.map(lambda args: compute_chunk(*args), tasks)
+
+    return a_coeff_matrix, b_coeff_matrix, c_coeff_matrix, d_coeff_matrix
+
 h = 0.01
 N = 10
 t = np.arange(0, np.pi + h, h)
 x = t*wc
 y = t*wm
-coeff = dfs_coeff(M, N)
+coeff = dfs_coeff_multithreaded(N, N)
 a_coeff_matrix, b_coeff_matrix, c_coeff_matrix, d_coeff_matrix = coeff
 
 print("A: \n", a_coeff_matrix)
@@ -82,7 +110,7 @@ print("B: \n", b_coeff_matrix)
 print("C: \n", c_coeff_matrix)
 print("D: \n", d_coeff_matrix)
 
-with open("fourier_coefficients.txt", "w") as f:
+with open("data/fourier_coefficients.txt", "w") as f:
     f.write("a_coeff_matrix:\n")
     np.savetxt(f, a_coeff_matrix, fmt="%.5f")
     f.write("\n\nb_coeff_matrix:\n")
